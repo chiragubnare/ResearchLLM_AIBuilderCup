@@ -2,13 +2,11 @@ import os
 import sys
 import time
 import chromadb
+from chromadb.config import Settings
 from google import genai
 from google.genai import types
 from google.genai.errors import ClientError
 from dotenv import load_dotenv
-from chromadb.config import Settings
-
-os.environ["ANONYMIZED_TELEMETRY"] = "False"
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from shared.contracts import Chunk
@@ -24,15 +22,15 @@ chroma_client = chromadb.PersistentClient(
 collection = chroma_client.get_or_create_collection("paper_chunks")
 
 
-def embed_text(text: str, max_retries: int = 3) -> list[float]:
+def embed_texts(texts: list[str], task_type: str = "RETRIEVAL_DOCUMENT", max_retries: int = 4) -> list[list[float]]:
     for attempt in range(max_retries):
         try:
             response = client.models.embed_content(
                 model="gemini-embedding-001",
-                contents=[text],
-                config=types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT"),
+                contents=texts,
+                config=types.EmbedContentConfig(task_type=task_type),
             )
-            return response.embeddings[0].values
+            return [e.values for e in response.embeddings]
         except ClientError as e:
             if "429" in str(e) and attempt < max_retries - 1:
                 wait = 10 * (attempt + 1)
@@ -42,22 +40,27 @@ def embed_text(text: str, max_retries: int = 3) -> list[float]:
                 raise
 
 
-def index_chunks(chunks: list[Chunk]):
+def embed_text(text: str, task_type: str = "RETRIEVAL_QUERY") -> list[float]:
+    return embed_texts([text], task_type)[0]
+
+
+def index_chunks(chunks: list[Chunk], batch_size: int = 8):
     existing_ids = set(collection.get()["ids"])
     remaining = [c for c in chunks if c.id not in existing_ids]
     print(f"  {len(chunks) - len(remaining)} already indexed, {len(remaining)} remaining")
 
-    for i, chunk in enumerate(remaining):
-        embedding = embed_text(chunk.content)
+    for i in range(0, len(remaining), batch_size):
+        batch = remaining[i:i + batch_size]
+        embeddings = embed_texts([c.content for c in batch])
         collection.add(
-            ids=[chunk.id],
-            embeddings=[embedding],
-            documents=[chunk.content],
+            ids=[c.id for c in batch],
+            embeddings=embeddings,
+            documents=[c.content for c in batch],
             metadatas=[{
-                "type": chunk.type,
-                "page_number": chunk.page_number,
-                "source_ref": chunk.source_ref or "",
-            }],
+                "type": c.type,
+                "page_number": c.page_number,
+                "source_ref": c.source_ref or "",
+            } for c in batch],
         )
-        print(f"  Indexed {i+1}/{len(remaining)}")
-        time.sleep(1)
+        print(f"  Indexed {min(i + batch_size, len(remaining))}/{len(remaining)}")
+        time.sleep(2)

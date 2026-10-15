@@ -5,6 +5,8 @@ opencv-python==4.10.0.84
 python-dotenv==1.0.1
 pydantic==2.9.2
 numpy>=1.26.0,<2.0.0
+# PyArrow 26+ refuses to import on NumPy 1.x. ChromaDB 0.5.15 still needs NumPy 1.26.
+pyarrow>=10.0.1,!=25.0.0,<26
 chromadb==0.5.15
 posthog>=2.4.0,<4.0.0
 google-genai>=1.0.0

@@ -1,13 +1,18 @@
-from pydantic import BaseModel
 from typing import Literal, Optional
+
+from pydantic import BaseModel, Field
 
 
 class Chunk(BaseModel):
-    id: str
-    type: Literal["text", "table", "figure"]
-    content: str                      # raw text / table as markdown / figure caption
+    chunk_id: str
+    doc_id: str
     page_number: int
-    source_ref: Optional[str] = None  # e.g. "Table 2", "Figure 3"
+    chunk_type: Literal["text", "table_json", "image_caption"]
+    content: str
+    image_gcs_url: Optional[str] = None
+    image_key: Optional[str] = None
+    bounding_box: Optional[list[float]] = Field(default=None, min_length=4, max_length=4)
+    source_ref: Optional[str] = None
 
 
 class RetrievedChunk(BaseModel):
@@ -17,4 +22,4 @@ class RetrievedChunk(BaseModel):
 
 class ChatResponse(BaseModel):
     answer: str
-    citations: list[RetrievedChunk]
+    citations: list[RetrievedChunk] = Field(default_factory=list)

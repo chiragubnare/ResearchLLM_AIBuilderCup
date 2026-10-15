@@ -42,6 +42,8 @@ ENV/
 # =========================
 chroma_db/
 **/chroma_db/
+storage_data/
+**/storage_data/
 
 # Chroma / SQLite generated files
 *.sqlite

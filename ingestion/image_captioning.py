@@ -7,13 +7,21 @@ from dotenv import load_dotenv
 
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
 
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+client = None
+
+
+def _get_client():
+    global client
+    if client is None:
+        client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+    return client
 
 
 def caption_image(image_bytes: bytes, ext: str, max_retries: int = 3) -> str:
+    mime_ext = {"jpg": "jpeg"}.get(ext.lower(), ext.lower())
     for attempt in range(max_retries):
         try:
-            interaction = client.interactions.create(
+            interaction = _get_client().interactions.create(
                 model="gemini-3.8-flash",
                 input=[
                     {"type": "text", "text": (
@@ -21,7 +29,7 @@ def caption_image(image_bytes: bytes, ext: str, max_retries: int = 3) -> str:
                         "including any visible labels, trends, or data values. 2-3 sentences."
                     )},
                     {"type": "image", "data": base64.b64encode(image_bytes).decode("utf-8"),
-                     "mime_type": f"image/{ext}"},
+                     "mime_type": f"image/{mime_ext}"},
                 ],
             )
             return interaction.output_text

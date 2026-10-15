@@ -29,6 +29,7 @@ def extract_tables(pdf_path: str) -> list[dict]:
             results.append({
                 "page_number": t.page,
                 "markdown": markdown,
+                "rows": t.df.fillna("").astype(str).values.tolist(),
                 "source_ref": f"Table {i+1}",
             })
     return results

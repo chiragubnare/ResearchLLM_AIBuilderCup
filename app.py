@@ -12,7 +12,7 @@ import pymupdf
 from ingestion.pipeline import build_chunks
 from retrieval.indexing import index_chunks, restore_vector_index
 from retrieval.retriever import retrieve
-from retrieval.answering import stream_answer, validate_citations
+from retrieval.answering import greeting_reply, stream_answer, validate_citations
 from shared.storage import get_storage
 
 
@@ -203,22 +203,27 @@ question = st.chat_input(
 if question:
     st.chat_message("user").markdown(question)
     messages.append({"role": "user", "content": question})
-    try:
-        with st.chat_message("assistant"):
-            with st.spinner("Searching the paper…"):
-                evidence = retrieve(question, doc_id=st.session_state.doc_id, top_k=5)
-            if evidence:
-                output = st.empty()
-                with output.container():
-                    draft = st.write_stream(stream_answer(question, evidence, messages[:-1]))
-                response, cited_evidence = validate_citations(draft, evidence)
-                output.markdown(response)
-                if cited_evidence:
-                    show_sources(cited_evidence, get_storage())
-            else:
-                response = "I couldn't find relevant information in the indexed paper."
-                cited_evidence = []
-                st.markdown(response)
-        messages.append({"role": "assistant", "content": response, "sources": cited_evidence})
-    except Exception as exc:
-        st.error(f"I couldn't answer that question: {exc}")
+    welcome = greeting_reply(question)
+    if welcome:
+        st.chat_message("assistant").markdown(welcome)
+        messages.append({"role": "assistant", "content": welcome, "sources": []})
+    else:
+        try:
+            with st.chat_message("assistant"):
+                with st.spinner("Searching the paper…"):
+                    evidence = retrieve(question, doc_id=st.session_state.doc_id, top_k=5)
+                if evidence:
+                    output = st.empty()
+                    with output.container():
+                        draft = st.write_stream(stream_answer(question, evidence, messages[:-1]))
+                    response, cited_evidence = validate_citations(draft, evidence)
+                    output.markdown(response)
+                    if cited_evidence:
+                        show_sources(cited_evidence, get_storage())
+                else:
+                    response = "I couldn't find relevant information in the indexed paper."
+                    cited_evidence = []
+                    st.markdown(response)
+            messages.append({"role": "assistant", "content": response, "sources": cited_evidence})
+        except Exception as exc:
+            st.error(f"I couldn't answer that question: {exc}")

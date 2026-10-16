@@ -1,9 +1,12 @@
 from shared.contracts import ChatResponse, RetrievedChunk
-from retrieval.answering import stream_answer, validate_citations
+from retrieval.answering import greeting_reply, stream_answer, validate_citations
 from retrieval.retriever import retrieve
 
 
 def answer_query(question: str, doc_id: str, top_k: int = 5) -> ChatResponse:
+    welcome = greeting_reply(question)
+    if welcome:
+        return ChatResponse(answer=welcome)
     evidence: list[RetrievedChunk] = retrieve(question, doc_id=doc_id, top_k=top_k)
     if not evidence:
         return ChatResponse(answer="I couldn't find relevant information in the indexed paper.")
